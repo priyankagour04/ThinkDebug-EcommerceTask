@@ -1,6 +1,6 @@
 const { errorResponse, successResponse } = require("../helper/responseMsg");
 const { AdminProfileModel } = require("../Models/adminModel");
-const { ProductModel, CategoryModel } = require("../Models/userModel");
+const { ProductModel, CategoryModel, OrderModel } = require("../Models/userModel");
 
 const adminProfile = async (req, res) => {
     const userId = req.userId
@@ -128,7 +128,7 @@ const addProduct = async (req, res) => {
 };
 
 const listProducts = async (req, res) => {
-    
+
   try {
     const products = await ProductModel.find()
       .populate("categoryId", "name description")
@@ -194,6 +194,58 @@ const deleteProduct = async (req, res) => {
   }
 };
 
+const listOrders = async (req, res) => {
+  try {
+    const orders = await OrderModel.find()
+      .populate({
+        path: "items.productId",
+        select: "name price stock categoryId",
+        populate: {
+          path: "categoryId",  // Populate category inside product
+          select: "name description"
+        }
+      })
+      .populate("userId", "name email") // Optional: populate user info
+      .sort({ createdAt: -1 });
+
+    return successResponse(req, res, orders, "Order list fetched successfully", 200);
+  } catch (error) {
+    return errorResponse(req, res, error.message, 500);
+  }
+};
+
+
+const orderDetails = async (req, res) => {
+  try {
+    const adminId = req.userId; // from JWT middleware
+    const { orderId } = req.body;
+
+    if (!orderId) {
+      return errorResponse(req, res, "Order ID is required", 400);
+    }
+
+    const order = await OrderModel.findOne({
+      _id: orderId,
+      
+    })
+      .populate("items.productId", "name price discount categoryId");
+
+    if (!order) {
+      return errorResponse(req, res, "Order not found", 404);
+    }
+
+    return successResponse(
+      req,
+      res,
+      order,
+      "Order details fetched successfully",
+      200
+    );
+  } catch (error) {
+    return errorResponse(req, res, error.message, 500);
+  }
+};
+
 
 module.exports = {
     adminProfile,
@@ -206,7 +258,9 @@ module.exports = {
     listProducts,
     productDetail,
     updateProduct,
-    deleteProduct
+    deleteProduct,
+    listOrders,
+    orderDetails
 
 
 }
